@@ -9,12 +9,11 @@ const A3_CONFIG = {
   isProduction: window.location.protocol === 'https:',
   siteUrl: window.location.origin,
 
-  // ─── Evolution API ─────────────────────────
-  // Defaults (sobrescritos pelo localStorage quando o usuário salva)
-  evo: {
-    url:      'https://n8n-evolution-api.70zt7a.easypanel.host',
-    key:      '',
-    instance: 'cesar',
+  // ─── Supabase (preencher via env/placeholder) ─────────────────
+  supabase: {
+    url: '',
+    anonKey: '',
+    storageBucket: 'imobiliariabucket'
   },
 
   // ─── Webhook (Hostinger) ───────────────────

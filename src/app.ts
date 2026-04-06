@@ -1,7 +1,10 @@
+// @ts-nocheck
+import { createClient } from '@supabase/supabase-js';
+import { supabaseConfig } from './config';
+
 /* =============================================
-   A3 FLOW – app.js  (CRM Imobiliário)
+   A3 FLOW – app.ts (CRM Imobiliário)
    ============================================= */
-'use strict';
 
 // ─── State ────────────────────────────────────
 const state = {
@@ -43,15 +46,14 @@ const state = {
 let supabase = null;
 
 async function initSupabase() {
-  if (!window.supabase || !window.A3_CONFIG?.supabase?.url || !window.A3_CONFIG?.supabase?.anonKey) {
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
     console.warn('Supabase config ausente; usando somente estado local.');
     return;
   }
-  supabase = window.supabase.createClient(
-    window.A3_CONFIG.supabase.url,
-    window.A3_CONFIG.supabase.anonKey,
-    { auth: { persistSession: false }, global: { headers: { 'x-client-info': 'a3flow-crm' } } }
-  );
+  supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { 'x-client-info': 'a3flow-crm' } },
+  });
   await fetchImoveisFromSupabase();
 }
 
@@ -173,6 +175,7 @@ function renderActivityFeed() {
   `).join('');
 }
 
+// ─── Kanban ───────────────────────────────────
 function renderKanban() {
   const board = document.getElementById('kanban-board');
   if (!board) return;
@@ -483,8 +486,14 @@ function openEditImovelModal(imovelId, event) {
     if (title) title.textContent = 'Editar Imóvel';
     const btn = modal.querySelector('button.btn-primary');
     if (btn) btn.textContent = 'Salvar Alterações';
-    modal.classList.add('open');
+    modal.classList.add('open'); 
   }
+}
+
+function openAddImovelModalForCol(colIndex) {
+  const colSelect = document.getElementById('new-imovel-col');
+  if (colSelect) colSelect.value = String(colIndex);
+  openAddImovelModal();
 }
 
 function openAddImovelModal() { 
@@ -501,7 +510,6 @@ function openAddImovelModal() {
     modal.classList.add('open'); 
   }
 }
-function openAddImovelModalForCol(i) { openAddImovelModal(); document.getElementById('new-imovel-col').value = i; }
 
 async function addNewImovel() {
   const tipo        = document.getElementById('new-imovel-tipo').value;
@@ -523,13 +531,6 @@ async function addNewImovel() {
   if (_editingImovelId) {
     const imovel = state.imoveis.find(i => i.id === _editingImovelId);
     if (imovel) {
-      imovel.tipo = tipo;
-      imovel.address = address;
-      imovel.price = price;
-      imovel.area = area;
-      imovel.rooms = rooms;
-      imovel.bathrooms = bathrooms;
-      imovel.parking = parking;
       Object.assign(imovel, { tipo, address, price, area, rooms, bathrooms, parking, owner, ownerPhone, description, col, photos });
       state.activities.unshift({ text: `Imóvel ${address} atualizado`, time: 'Agora mesmo', icon: '📝' });
       await persistImovel(imovel.id, imovel, true);
@@ -568,10 +569,10 @@ function addNewTask() {
 }
 
 async function uploadPhotoQueue(queue, imovelId) {
-  if (!supabase || !window.A3_CONFIG?.supabase?.storageBucket) {
+  if (!supabase || !supabaseConfig.storageBucket) {
     return queue.filter(p => p.url).map(p => p.url); // fallback local
   }
-  const bucket = window.A3_CONFIG.supabase.storageBucket;
+  const bucket = supabaseConfig.storageBucket;
   const urls = [];
 
   for (const item of queue) {
@@ -745,14 +746,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) {
-      overlay.classList.remove('open');
-    }
-  });
-});
-
 // ─── Init ─────────────────────────────────────
 (function init() {
   document.getElementById('view-login').classList.add('active');
@@ -762,3 +755,35 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   }
   initSupabase();
 })();
+
+// ─── Expose to window for inline handlers ─────
+const g = window as any;
+Object.assign(g, {
+  navigate,
+  handleLogin,
+  handleLogout,
+  openAddImovelModal,
+  openAddImovelModalForCol,
+  openEditImovelModal,
+  addNewImovel,
+  deleteImovel,
+  openImovelDetail,
+  closeDetailModal,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  openAddTaskModal,
+  addNewTask,
+  openAddLeadModal,
+  addNewLead,
+  openLeadDetail,
+  switchLeadTab,
+  sendWhatsAppMessage,
+  toggleChange,
+  setTheme,
+  closeModal,
+  removePhotoAt,
+  handleImovelPhotosChange,
+});
