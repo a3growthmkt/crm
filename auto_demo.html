@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>A3 FLOW – Auto Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; display: flex; height: 100vh; }
+    #log-panel {
+      width: 340px; min-width: 340px; background: #1e293b; padding: 20px;
+      overflow-y: auto; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #334155;
+    }
+    h2 { font-size: 1rem; margin-bottom: 12px; color: #fb6551; }
+    .step { font-size: 0.82rem; padding: 8px 10px; border-radius: 6px; background: #0f172a; border-left: 3px solid #334155; }
+    .step.ok    { border-color: #22c55e; color: #bbf7d0; }
+    .step.err   { border-color: #ef4444; color: #fca5a5; }
+    .step.info  { border-color: #3b82f6; color: #bfdbfe; }
+    .step.wait  { border-color: #f59e0b; color: #fde68a; }
+    #crm-frame { flex: 1; border: none; }
+    #run-btn {
+      margin-top: auto; padding: 10px; background: #fb6551; color: white;
+      border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+    }
+    #run-btn:hover { background: #e5533d; }
+    #run-btn:disabled { background: #475569; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div id="log-panel">
+  <h2>🤖 A3 FLOW – Auto Demo</h2>
+  <div class="step info">Clique em "▶ Executar" para iniciar.</div>
+  <div style="margin-top: auto;">
+    <button id="run-btn" onclick="runDemo()">▶ Executar Automação</button>
+  </div>
+</div>
+
+<iframe id="crm-frame" src="http://localhost:3000/"></iframe>
+
+<script>
+  const frame = document.getElementById('crm-frame');
+  const logEl  = document.getElementById('log-panel');
+  const runBtn = document.getElementById('run-btn');
+
+  function log(msg, type = 'info') {
+    const d = document.createElement('div');
+    d.className = `step ${type}`;
+    d.textContent = msg;
+    logEl.insertBefore(d, logEl.lastElementChild);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  async function exec(js) {
+    return new Promise((resolve) => {
+      const handler = (e) => {
+        if (e.data && e.data.type === 'a3_result') {
+          window.removeEventListener('message', handler);
+          resolve(e.data.result);
+        }
+      };
+      window.addEventListener('message', handler);
+      frame.contentWindow.postMessage({ type: 'a3_exec', js }, '*');
+      // Fallback timeout
+      setTimeout(() => { window.removeEventListener('message', handler); resolve(null); }, 5000);
+    });
+  }
+
+  // Inject bridge into iframe
+  frame.addEventListener('load', () => {
+    try {
+      frame.contentWindow.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'a3_exec') {
+          let result;
+          try { result = eval(e.data.js); } catch(err) { result = 'ERROR: ' + err.message; }
+          Promise.resolve(result).then(r => {
+            parent.postMessage({ type: 'a3_result', result: r }, '*');
+          });
+        }
+      });
+    } catch(e) { /* cross-origin fallback */ }
+  });
+
+  async function runDemo() {
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Executando...';
+
+    // ── PASSO 1: LOGIN ──────────────────────────────
+    log('🔐 Passo 1: Fazendo login...', 'wait');
+    await delay(500);
+
+    frame.contentWindow.eval(`
+      (function() {
+        var e = document.getElementById('login-email');
+        var p = document.getElementById('login-password');
+        if (e) e.value = 'carlos@empresa.com';
+        if (p) p.value = '123456';
+        var f = document.getElementById('login-form');
+        if (f) f.dispatchEvent(new Event('submit', {bubbles:true,cancelable:true}));
+      })();
+    `);
+    await delay(1400);
+    log('✅ Login efetuado!', 'ok');
+
+    // ── PASSO 2: KANBAN ─────────────────────────────
+    log('📋 Passo 2: Abrindo Kanban...', 'wait');
+    frame.contentWindow.eval(`if (typeof navigate === 'function') navigate('kanban');`);
+    await delay(700);
+    log('✅ Kanban carregado!', 'ok');
+
+    // ── PASSO 3: CRIAR LEAD ─────────────────────────
+    log('➕ Passo 3: Abrindo modal Novo Lead...', 'wait');
+    frame.contentWindow.eval(`if (typeof openAddLeadModal === 'function') openAddLeadModal();`);
+    await delay(500);
+
+    log('📝 Preenchendo dados do lead...', 'info');
+    frame.contentWindow.eval(`
+      (function() {
+        var set = function(id, val) {
+          var el = document.getElementById(id);
+          if (el) { el.value = val; el.dispatchEvent(new Event('input')); }
+        };
+        set('new-lead-name',    'Contato WhatsApp');
+        set('new-lead-company', 'Teste WA');
+        set('new-lead-role',    'Cliente');
+        set('new-lead-phone',   '55999414301');
+        set('new-lead-value',   'R$ 0');
+        set('new-lead-col',     '0');
+      })();
+    `);
+    await delay(300);
+
+    log('💾 Salvando lead...', 'wait');
+    frame.contentWindow.eval(`if (typeof addNewLead === 'function') addNewLead();`);
+    await delay(800);
+    log('✅ Lead "Contato WhatsApp" criado com número 55999414301!', 'ok');
+
+    // ── PASSO 4: ABRIR CHAT ─────────────────────────
+    log('💬 Passo 4: Abrindo chat WhatsApp do lead...', 'wait');
+    frame.contentWindow.eval(`
+      (function() {
+        var lead = state.leads.find(function(l) {
+          return l.phone && l.phone.replace(/\\D/g,'') === '55999414301';
+        });
+        if (lead) {
+          openLeadDetail(lead.id, { stopPropagation: function(){} });
+          setTimeout(function() { switchLeadTab('chat'); }, 600);
+        } else {
+          console.error('Lead não encontrado');
+        }
+      })();
+    `);
+    await delay(2500);
+    log('✅ Chat WhatsApp aberto!', 'ok');
+
+    // ── PASSO 5: ENVIAR MENSAGEM ────────────────────
+    log('📤 Passo 5: Enviando mensagem WhatsApp...', 'wait');
+    frame.contentWindow.eval(`
+      (function() {
+        var inp = document.getElementById('chat-input');
+        if (inp) {
+          inp.value = 'Olá! Tudo bem? Entrando em contato pelo A3 FLOW CRM.';
+          inp.dispatchEvent(new Event('input'));
+        }
+      })();
+    `);
+    await delay(300);
+    frame.contentWindow.eval(`
+      if (typeof sendWhatsAppMessage === 'function') sendWhatsAppMessage();
+    `);
+    await delay(3000);
+
+    log('🏁 Automação concluída! Veja o resultado no CRM.', 'ok');
+    runBtn.disabled = false;
+    runBtn.textContent = '🔄 Executar Novamente';
+  }
+</script>
+</body>
+</html>
