@@ -12,6 +12,17 @@ const state = {
   draggedCard: null,
   draggedCardData: null,
   draggingType: null,
+  searchQuery: '',
+  sidebarOpen: false,
+  activeKanbanCol: 0,
+
+  toggleSidebar() {
+    state.sidebarOpen = !state.sidebarOpen;
+    const sidebar = document.getElementById('main-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.toggle('mobile-open', state.sidebarOpen);
+    if (overlay) overlay.classList.toggle('active', state.sidebarOpen);
+  },
 
   tasks: [
     { id: 1, name: 'Ligar para proprietário João', time: '14:00', detail: 'Agendar visita', done: false },
@@ -58,16 +69,34 @@ async function initSupabase() {
 }
 
 async function fetchImoveisFromSupabase() {
+  // Tenta carregar do LocalStorage primeiro (para velocidade e offline)
+  const localData = loadLocal('imoveis');
+  if (localData) {
+    state.imoveis = localData;
+    renderKanban();
+  }
+
   if (!supabase) return;
   const { data, error } = await supabase.from('imoveis').select('*').order('created_at', { ascending: false });
-  if (error) { console.error('Erro ao carregar imóveis', error); showToast('Erro ao carregar imóveis do Supabase', 'error'); return; }
-  state.imoveis = (data || []).map(im => ({
-    ...im,
-    photos: im.photos || [],
-    color: im.color || '#fb6551'
-  }));
-  renderKanban();
-  renderPipelineStages();
+  
+  if (error) { 
+    console.warn('Erro Supabase (usando local):', error.message);
+    if (error.message.includes('relation "public.imoveis" does not exist')) {
+      showToast('Modo Local: Tabelas não encontradas no Supabase.', 'info');
+    }
+    return; 
+  }
+
+  if (data) {
+    state.imoveis = data.map(im => ({
+      ...im,
+      photos: im.photos || [],
+      color: im.color || '#fb6551'
+    }));
+    saveLocal('imoveis', state.imoveis);
+    renderKanban();
+    renderPipelineStages();
+  }
 }
 
 function escapeHtml(str) {
@@ -92,12 +121,34 @@ function navigate(page) {
       el.classList.toggle('page-active', p === page);
     }
   });
-  document.querySelectorAll('.nav-item').forEach(item =>
+  document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(item =>
     item.classList.toggle('active', item.dataset.view === page));
+  const backBtn = document.getElementById('mobile-back-btn');
+  if (backBtn) {
+    backBtn.style.display = (page !== 'dashboard') ? 'flex' : 'none';
+  }
+
   state.currentPage = page;
   if (page === 'dashboard')    renderDashboard();
   if (page === 'kanban')       renderKanban();
   if (page === 'settings')     renderSettings();
+
+  // Fecha o menu mobile ao navegar se estiver aberto
+  if (state.sidebarOpen) state.toggleSidebar();
+}
+
+function handleMobileBack() {
+  // Se houver algum modal aberto, feche-o primeiro
+  const openModal = document.querySelector('.modal-overlay.open');
+  if (openModal) {
+    openModal.classList.remove('open');
+    return;
+  }
+  
+  // Caso contrário, se não estiver na home, volte para a home
+  if (state.currentPage !== 'dashboard') {
+    navigate('dashboard');
+  }
 }
 
 // ─── Auth ──────────────────────────────────────
@@ -140,25 +191,85 @@ function renderDashboard() { renderTasksList(); renderActivityFeed(); }
 function renderTasksList() {
   const container = document.getElementById('tasks-list');
   if (!container) return;
-  container.innerHTML = state.tasks.map(t => `
-    <div class="task-item ${t.done ? 'done' : ''}" onclick="toggleTask(${t.id})">
-      <div class="task-checkbox">
-        ${t.done ? '<span class="material-symbols-rounded" style="font-size:0.9rem">check</span>' : ''}
-      </div>
-      <div class="task-content">
-        <div class="task-name">${t.name}</div>
-        <div class="task-meta">
-          <span class="material-symbols-rounded" style="font-size:0.75rem">schedule</span>
-          ${t.time} · ${t.detail}
+  
+  // Sort tasks: pending first
+  const sortedTasks = [...state.tasks].sort((a, b) => Number(a.done) - Number(b.done));
+
+  container.innerHTML = sortedTasks.map(t => {
+    // Ensure ID is handled correctly as string for onclick attribute
+    const idStr = String(t.id);
+    return `
+      <div class="task-item ${t.done ? 'done' : ''}" 
+           style="cursor:pointer"
+           onclick="openTaskDetail('${idStr}')">
+        <div class="task-checkbox" onclick="toggleTask('${idStr}', event)">
+          ${t.done ? '<span class="material-symbols-rounded" style="font-size:0.9rem">check</span>' : ''}
+        </div>
+        <div class="task-content">
+          <div class="task-name">${t.name}</div>
+          <div class="task-meta">
+            <span class="material-symbols-rounded" style="font-size:0.75rem">schedule</span>
+            ${t.time} · ${t.detail}
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
-function toggleTask(id) {
+function toggleTask(id, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  console.log('Toggling task:', id);
+  const task = state.tasks.find(t => String(t.id) === String(id));
+  if (task) { 
+    task.done = !task.done; 
+    renderTasksList();
+    if (task.done) {
+      showToast('Tarefa concluída!', 'success');
+    }
+  }
+}
+
+function openTaskDetail(id) {
+  console.log('Opening task detail:', id);
+  const task = state.tasks.find(t => String(t.id) === String(id));
+  if (!task) {
+    console.error('Task not found for ID:', id);
+    return;
+  }
+  
+  const idEl = document.getElementById('edit-task-id');
+  const nameEl = document.getElementById('edit-task-name');
+  const timeEl = document.getElementById('edit-task-time');
+  const detailEl = document.getElementById('edit-task-detail');
+  
+  if (idEl) idEl.value = task.id;
+  if (nameEl) nameEl.value = task.name;
+  if (timeEl) timeEl.value = task.time;
+  if (detailEl) detailEl.value = task.detail;
+  
+  const modal = document.getElementById('modal-task-edit');
+  if (modal) {
+    modal.classList.add('open');
+  } else {
+    console.error('Modal modal-task-edit not found');
+  }
+}
+
+function saveTask() {
+  const id = parseInt(document.getElementById('edit-task-id').value);
   const task = state.tasks.find(t => t.id === id);
-  if (task) { task.done = !task.done; renderTasksList(); }
+  if (task) {
+    task.name = document.getElementById('edit-task-name').value;
+    task.time = document.getElementById('edit-task-time').value;
+    task.detail = document.getElementById('edit-task-detail').value;
+    renderTasksList();
+    closeModal('modal-task-edit');
+    showToast('Tarefa atualizada!', 'success');
+  }
 }
 
 function renderActivityFeed() {
@@ -180,17 +291,55 @@ function renderKanban() {
   const board = document.getElementById('kanban-board');
   if (!board) return;
 
-  board.innerHTML = state.propertyColumns.map((col, idx) => {
-    const imoveisNaColuna = state.imoveis.filter(i => i.col === idx);
+  const isMobile = window.innerWidth <= 768;
+  const q = (state.searchQuery || '').toLowerCase();
+
+  // Renderiza Abas no Mobile
+  let tabsHTML = '';
+  if (isMobile) {
+    tabsHTML = `
+      <div class="kanban-mobile-tabs">
+        ${state.propertyColumns.map((col, idx) => {
+          const count = state.imoveis.filter(i => i.col === idx).length;
+          const activeClass = state.activeKanbanCol === idx ? 'active' : '';
+          return `
+            <button class="kanban-tab-pill ${activeClass}" onclick="switchKanbanCol(${idx})">
+              <span class="tab-pill-dot" style="background:${col.color}"></span>
+              ${col.name} <span class="tab-pill-count">${count}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  const columnsToRender = isMobile 
+    ? [state.propertyColumns[state.activeKanbanCol]] 
+    : state.propertyColumns;
+
+  const actualStartIndex = isMobile ? state.activeKanbanCol : 0;
+
+  board.innerHTML = tabsHTML + columnsToRender.map((col, relativeIdx) => {
+    const idx = isMobile ? state.activeKanbanCol : relativeIdx;
+    const imoveisNaColuna = state.imoveis.filter(i => {
+      const matchCol = i.col === idx;
+      const matchQuery = !q || 
+        (i.address || '').toLowerCase().includes(q) || 
+        (i.owner || '').toLowerCase().includes(q) || 
+        (i.tipo || '').toLowerCase().includes(q);
+      return matchCol && matchQuery;
+    });
     return `
-    <div class="kanban-col" id="${col.id}"
+    <div class="kanban-col ${isMobile ? 'mobile-single' : ''}" id="${col.id}"
       ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, ${idx})">
+      ${!isMobile ? `
       <div class="kanban-col-header">
         <div class="kanban-col-top" style="background:${col.color}"></div>
         <div class="kanban-col-title" style="padding-top:8px">
           ${col.name}<span class="kanban-col-count">${imoveisNaColuna.length}</span>
         </div>
       </div>
+      ` : ''}
       <div class="kanban-cards" id="cards-prop-${idx}">
         ${imoveisNaColuna.map(imovel => renderImovelCard(imovel)).join('')}
       </div>
@@ -274,6 +423,12 @@ function onDrop(e, colIndex) {
   renderKanban();
   spawnConfetti(e.clientX, e.clientY);
   persistImovel(imovelId, { col: colIndex });
+}
+
+function switchKanbanCol(idx) {
+  state.activeKanbanCol = idx;
+  renderKanban();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ─── Confetti ─────────────────────────────────
@@ -582,7 +737,12 @@ async function uploadPhotoQueue(queue, imovelId) {
     const filename = `${Date.now()}-${Math.random().toString(16).slice(2)}.${fileExt}`;
     const path = `imoveis/${imovelId || 'temp'}/${filename}`;
     const { error } = await supabase.storage.from(bucket).upload(path, item.file, { upsert: true, contentType: item.file.type });
-    if (error) { console.error('Upload erro', error); showToast('Erro ao subir foto', 'error'); continue; }
+    if (error) { 
+      console.error('Upload erro', error); 
+      showToast('Erro no Cloud: Usando foto local temporária.', 'warning');
+      urls.push(item.url); // Mantém o blob local como fallback
+      continue; 
+    }
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     if (data?.publicUrl) urls.push(data.publicUrl);
   }
@@ -590,6 +750,9 @@ async function uploadPhotoQueue(queue, imovelId) {
 }
 
 async function persistImovel(id, payload, returnRow) {
+  // Sincroniza localmente sempre
+  setTimeout(() => saveLocal('imoveis', state.imoveis), 0);
+
   if (!supabase) return null;
   if (id) {
     const { data, error } = await supabase
@@ -598,7 +761,7 @@ async function persistImovel(id, payload, returnRow) {
       .eq('id', id)
       .select()
       .maybeSingle();
-    if (error) { console.error('Erro ao atualizar imóvel', error); showToast('Erro ao salvar no Supabase', 'error'); return null; }
+    if (error) { console.error('Erro ao atualizar imóvel', error); return null; }
     return data || null;
   }
   const { data, error } = await supabase
@@ -606,7 +769,7 @@ async function persistImovel(id, payload, returnRow) {
     .insert({ ...payload })
     .select()
     .maybeSingle();
-  if (error) { console.error('Erro ao criar imóvel', error); showToast('Erro ao salvar no Supabase', 'error'); return null; }
+  if (error) { console.error('Erro ao criar imóvel', error); return null; }
   return data || null;
 }
 
@@ -665,11 +828,12 @@ function addNewLead() {
   const lead = { id: 'l' + Date.now(), name, company, role, email, phone, value, col, createdAt: Date.now() };
   state.leads.unshift(lead);
   state.activities.unshift({ text: `Novo lead adicionado: ${name}`, time: 'Agora mesmo', icon: '👤' });
+  saveLocal('leads', state.leads);
   closeModal('modal-add-lead');
   clearModalFields(['new-lead-name','new-lead-company','new-lead-role','new-lead-email','new-lead-phone','new-lead-value']);
   const colSelect = document.getElementById('new-lead-col');
   if (colSelect) colSelect.value = '0';
-  showToast('Lead salvo (demo)', 'success');
+  showToast('Lead salvo localmente!', 'success');
 }
 
 function openLeadDetail(leadId, event) {
@@ -738,6 +902,22 @@ function dismissToast(toast) {
   setTimeout(() => toast.remove(), 350);
 }
 
+// ─── Persistence Helpers ──────────────────────
+function saveLocal(key, data) {
+  try { localStorage.setItem(`a3flow_${key}`, JSON.stringify(data)); } catch(e) {}
+}
+function loadLocal(key) {
+  try {
+    const d = localStorage.getItem(`a3flow_${key}`);
+    return d ? JSON.parse(d) : null;
+  } catch(e) { return null; }
+}
+
+function handleSearch(query) {
+  state.searchQuery = query;
+  renderKanban();
+}
+
 // ─── Keyboard shortcuts ───────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -753,12 +933,27 @@ document.addEventListener('keydown', e => {
   if (photoInput) {
     photoInput.addEventListener('change', e => handleImovelPhotosChange(e.target.files));
   }
+  
+  // Carrega leads locais
+  const localLeads = loadLocal('leads');
+  if (localLeads) state.leads = localLeads;
+
   initSupabase();
+
+  // Re-renderiza Kanban/Dashboard ao redimensionar (Abas vs Colunas)
+  window.addEventListener('resize', () => {
+    if (state.currentPage === 'kanban') renderKanban();
+    else if (state.currentPage === 'dashboard') renderDashboard();
+  });
 })();
 
 // ─── Expose to window for inline handlers ─────
 const g = window as any;
 Object.assign(g, {
+  openTaskDetail,
+  toggleTask,
+  saveTask,
+  handleMobileBack,
   navigate,
   handleLogin,
   handleLogout,
@@ -786,4 +981,7 @@ Object.assign(g, {
   closeModal,
   removePhotoAt,
   handleImovelPhotosChange,
+  handleSearch,
+  toggleSidebar: state.toggleSidebar,
+  switchKanbanCol,
 });

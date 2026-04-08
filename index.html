@@ -97,9 +97,42 @@
       APP SHELL (sidebar + pages)
 ═══════════════════════════════════════ -->
 <div id="app-shell" style="display:none">
+  <!-- Top Bar for Mobile -->
+  <div class="mobile-header" style="display:none">
+    <button id="mobile-back-btn" class="mobile-back-btn" onclick="handleMobileBack()" style="display:none">
+      <span class="material-symbols-rounded">arrow_back</span>
+    </button>
+    <div class="sidebar-logo" style="margin:0; border:none; padding:0; flex:1; justify-content:center">
+      <div class="logo-icon">S</div>
+      <span style="font-family:var(--font-heading); font-weight:800; color:var(--primary); font-size:1.1rem; margin-left:8px">A3 FLOW</span>
+    </div>
+    <div style="width:40px"></div><!-- Spacer for centering -->
+  </div>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Bottom Navigation for Mobile -->
+  <nav class="bottom-nav" style="display:none">
+    <a class="bottom-nav-item" data-view="dashboard" onclick="navigate('dashboard')">
+      <span class="material-symbols-rounded">dashboard</span>
+      <span>Home</span>
+    </a>
+    <a class="bottom-nav-item" data-view="kanban" onclick="navigate('kanban')">
+      <span class="material-symbols-rounded">view_kanban</span>
+      <span>Kanban</span>
+    </a>
+    <a class="bottom-nav-item" data-view="settings" onclick="navigate('settings')">
+      <span class="material-symbols-rounded">settings</span>
+      <span>Opções</span>
+    </a>
+    <a class="bottom-nav-item" data-view="profile" onclick="navigate('profile')">
+      <span class="material-symbols-rounded">person</span>
+      <span>Eu</span>
+    </a>
+  </nav>
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="main-sidebar">
     <div class="sidebar-logo">
       <div class="logo-icon">S</div>
       A3 FLOW
@@ -196,6 +229,13 @@
         <h1 style="font-size:1.75rem;font-weight:800">Imóveis</h1>
         <p style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">Gerencie seus imóveis e proprietários.</p>
       </div>
+
+      <!-- Barra de Pesquisa -->
+      <div class="search-bar" style="flex:1; max-width:400px; margin:0 24px">
+        <span class="material-symbols-rounded" style="color:var(--text-muted)">search</span>
+        <input type="text" id="kanban-search" placeholder="Pesquisar endereço, dono ou tipo..." oninput="handleSearch(this.value)">
+      </div>
+
       <button class="btn btn-primary" onclick="openAddImovelModal()">
         <span class="material-symbols-rounded" style="font-size:1rem">add</span> Novo Imóvel
       </button>
@@ -669,5 +709,31 @@
 </div>
 
 <script type="module" src="/src/main.ts"></script>
+<!-- ─── TASK DETAIL MODAL ────────────────── -->
+<div id="modal-task-edit" class="modal-overlay">
+  <div class="modal">
+    <h3 class="modal-title">Editar Tarefa</h3>
+    <input type="hidden" id="edit-task-id">
+    <div class="form-group mb-4">
+      <label class="form-label">Descrição da Tarefa</label>
+      <input type="text" id="edit-task-name" class="form-input" placeholder="O que precisa ser feito?">
+    </div>
+    <div class="flex gap-3 mb-4">
+      <div class="form-group flex-1">
+        <label class="form-label">Horário/Data</label>
+        <input type="text" id="edit-task-time" class="form-input" placeholder="Ex: 14:00">
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Contexto</label>
+        <input type="text" id="edit-task-detail" class="form-input" placeholder="Ex: Agendar visita">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-task-edit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTask()">Salvar Tarefa</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

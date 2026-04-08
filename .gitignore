@@ -9,3 +9,7 @@ Thumbs.db
 /.idea
 .vite
 dist
+.aidesigner/*
+!.aidesigner/.gitkeep
+.agents/
+.claude/
