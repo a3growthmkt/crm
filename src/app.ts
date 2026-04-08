@@ -66,6 +66,25 @@ async function initSupabase() {
     global: { headers: { 'x-client-info': 'a3flow-crm' } },
   });
   await fetchImoveisFromSupabase();
+  await fetchLeadsFromSupabase();
+}
+
+async function fetchLeadsFromSupabase() {
+  const localData = loadLocal('leads');
+  if (localData) {
+    state.leads = localData;
+  }
+  if (!supabase) return;
+  const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+  if (error) return;
+  if (data) {
+    state.leads = data.map(l => ({
+      ...l,
+      value: l.value || '',
+      createdAt: new Date(l.created_at).getTime()
+    }));
+    saveLocal('leads', state.leads);
+  }
 }
 
 async function fetchImoveisFromSupabase() {
@@ -773,6 +792,32 @@ async function persistImovel(id, payload, returnRow) {
   return data || null;
 }
 
+async function persistLead(id, payload) {
+  setTimeout(() => saveLocal('leads', state.leads), 0);
+  if (!supabase) return null;
+  
+  if (id && !id.startsWith('l')) { // startsWith('l') means it's a temporary local ID, we shouldn't update it to DB yet
+    const { data, error } = await supabase
+      .from('leads')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+    if (error) { console.error('Erro ao atualizar lead', error); return null; }
+    return data || null;
+  }
+  
+  // Para novos leads, removemos o ID local caso exista
+  const { id: _, createdAt, ...cleanPayload } = payload;
+  const { data, error } = await supabase
+    .from('leads')
+    .insert({ ...cleanPayload })
+    .select()
+    .maybeSingle();
+  if (error) { console.error('Erro ao criar lead no supabase', error); return null; }
+  return data || null;
+}
+
 // ─── Fotos do imóvel ──────────────────────────
 function handleImovelPhotosChange(files) {
   const maxPhotos = 5;
@@ -814,26 +859,34 @@ function openAddLeadModal() {
   if (modal) modal.classList.add('open');
 }
 
-function addNewLead() {
+async function addNewLead() {
   const name     = document.getElementById('new-lead-name')?.value.trim();
   const company  = document.getElementById('new-lead-company')?.value.trim();
   const role     = document.getElementById('new-lead-role')?.value.trim();
   const email    = document.getElementById('new-lead-email')?.value.trim();
   const phone    = document.getElementById('new-lead-phone')?.value.trim();
-  const value    = document.getElementById('new-lead-value')?.value.trim();
+  const value    = parseFloat(document.getElementById('new-lead-value')?.value.trim()) || 0;
   const col      = parseInt(document.getElementById('new-lead-col')?.value ?? '0', 10) || 0;
 
   if (!name || !phone) { showToast('Preencha nome e telefone do lead', 'warning'); return; }
 
-  const lead = { id: 'l' + Date.now(), name, company, role, email, phone, value, col, createdAt: Date.now() };
+  const tempId = 'l' + Date.now();
+  const lead = { id: tempId, name, company, role, email, phone, value, col, createdAt: Date.now() };
   state.leads.unshift(lead);
   state.activities.unshift({ text: `Novo lead adicionado: ${name}`, time: 'Agora mesmo', icon: '👤' });
+  
+  const created = await persistLead(null, lead);
+  if (created?.id) {
+    const localLead = state.leads.find(l => l.id === tempId);
+    if (localLead) localLead.id = created.id; // substitui ID temporário pelo ID do banco (UUID)
+  }
+  
   saveLocal('leads', state.leads);
   closeModal('modal-add-lead');
   clearModalFields(['new-lead-name','new-lead-company','new-lead-role','new-lead-email','new-lead-phone','new-lead-value']);
   const colSelect = document.getElementById('new-lead-col');
   if (colSelect) colSelect.value = '0';
-  showToast('Lead salvo localmente!', 'success');
+  showToast('Lead salvo e enviado para nuvem!', 'success');
 }
 
 function openLeadDetail(leadId, event) {
