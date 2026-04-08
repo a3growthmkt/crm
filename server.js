@@ -1,33 +1,17 @@
-const http = require('http');
-const fs = require('fs');
+const express = require('express');
 const path = require('path');
 
-const PORT = 3000;
-const BASE = __dirname;
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-const mimeTypes = {
-  'html': 'text/html',
-  'css': 'text/css',
-  'js': 'application/javascript',
-  'json': 'application/json',
-  'png': 'image/png',
-  'jpg': 'image/jpeg',
-  'svg': 'image/svg+xml'
-};
+// Serve public files from the 'dist' directory (Vite build output)
+app.use(express.static(path.join(__dirname, 'dist')));
 
-http.createServer((req, res) => {
-  let filePath = path.join(BASE, req.url === '/' ? 'index.html' : req.url);
-  const ext = path.extname(filePath).slice(1);
-  const contentType = mimeTypes[ext] || 'text/plain';
+// Fallback to index.html for Single Page Applications (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
-  try {
-    const data = fs.readFileSync(filePath);
-    res.writeHead(200, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
-    res.end(data);
-  } catch (e) {
-    res.writeHead(404);
-    res.end('Not Found');
-  }
-}).listen(PORT, () => {
-  console.log('CRM running on http://localhost:' + PORT);
+app.listen(PORT, () => {
+  console.log(`CRM running on port ${PORT}`);
 });
