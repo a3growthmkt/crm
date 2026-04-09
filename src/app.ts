@@ -67,6 +67,75 @@ async function initSupabase() {
   });
   await fetchImoveisFromSupabase();
   await fetchLeadsFromSupabase();
+  setupRealtime();
+}
+
+function setupRealtime() {
+  if (!supabase) return;
+
+  supabase.channel('public:imoveis')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'imoveis' }, payload => {
+      handleRealtimeUpdate('imoveis', payload);
+    })
+    .subscribe();
+
+  supabase.channel('public:leads')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, payload => {
+      handleRealtimeUpdate('leads', payload);
+    })
+    .subscribe();
+}
+
+function handleRealtimeUpdate(table, payload) {
+  const { eventType, new: newRec, old: oldRec } = payload;
+  
+  if (table === 'imoveis') {
+    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      const { ownerphone, ...rest } = newRec;
+      const formatted = { 
+        ...rest, 
+        ownerPhone: ownerphone || rest.ownerPhone || '',
+        photos: rest.photos || [], 
+        color: rest.color || '#fb6551' 
+      };
+      
+      const idx = state.imoveis.findIndex(i => i.id === formatted.id);
+      if (idx !== -1) {
+        state.imoveis[idx] = { ...state.imoveis[idx], ...formatted };
+      } else if (eventType === 'INSERT') {
+        const checkExistsAgain = state.imoveis.find(i => i.id === formatted.id);
+        if(!checkExistsAgain) {
+          state.imoveis.unshift(formatted);
+        }
+      }
+    } else if (eventType === 'DELETE') {
+      state.imoveis = state.imoveis.filter(i => i.id !== oldRec.id);
+    }
+    saveLocal('imoveis', state.imoveis);
+    renderKanban();
+    if(state.currentPage === 'settings') renderPipelineStages();
+  } else if (table === 'leads') {
+    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      const formatted = {
+        ...newRec,
+        value: newRec.value || '',
+        createdAt: newRec.created_at ? new Date(newRec.created_at).getTime() : Date.now()
+      };
+      
+      const idx = state.leads.findIndex(l => l.id === formatted.id);
+      if (idx !== -1) {
+        state.leads[idx] = { ...state.leads[idx], ...formatted };
+      } else if (eventType === 'INSERT') {
+        const checkExistsAgain = state.leads.find(l => l.id === formatted.id);
+        if(!checkExistsAgain) {
+          state.leads.unshift(formatted);
+        }
+      }
+    } else if (eventType === 'DELETE') {
+      state.leads = state.leads.filter(l => l.id !== oldRec.id);
+    }
+    saveLocal('leads', state.leads);
+  }
 }
 
 async function fetchLeadsFromSupabase() {
@@ -107,11 +176,15 @@ async function fetchImoveisFromSupabase() {
   }
 
   if (data) {
-    state.imoveis = data.map(im => ({
-      ...im,
-      photos: im.photos || [],
-      color: im.color || '#fb6551'
-    }));
+    state.imoveis = data.map(im => {
+      const { ownerphone, ...rest } = im;
+      return {
+        ...rest,
+        ownerPhone: ownerphone || rest.ownerPhone || '',
+        photos: rest.photos || [],
+        color: rest.color || '#fb6551'
+      };
+    });
     saveLocal('imoveis', state.imoveis);
     renderKanban();
     renderPipelineStages();
@@ -689,10 +762,10 @@ async function addNewImovel() {
   const tipo        = document.getElementById('new-imovel-tipo').value;
   const address     = document.getElementById('new-imovel-address').value.trim();
   const price       = document.getElementById('new-imovel-price').value.trim() || 'R$ 0';
-  const area        = document.getElementById('new-imovel-area').value.trim();
-  const rooms       = document.getElementById('new-imovel-rooms').value.trim();
-  const bathrooms   = document.getElementById('new-imovel-bathrooms').value.trim();
-  const parking     = document.getElementById('new-imovel-parking').value.trim();
+  const area        = document.getElementById('new-imovel-area').value.trim() || null;
+  const rooms       = document.getElementById('new-imovel-rooms').value.trim() || null;
+  const bathrooms   = document.getElementById('new-imovel-bathrooms').value.trim() || null;
+  const parking     = document.getElementById('new-imovel-parking').value.trim() || null;
   const owner       = document.getElementById('new-imovel-owner').value.trim();
   const ownerPhone  = document.getElementById('new-imovel-owner-phone').value.trim();
   const description = document.getElementById('new-imovel-description').value.trim();
@@ -773,10 +846,15 @@ async function persistImovel(id, payload, returnRow) {
   setTimeout(() => saveLocal('imoveis', state.imoveis), 0);
 
   if (!supabase) return null;
+
+  const { ownerPhone, ...restPayload } = payload;
+  const dbPayload = { ...restPayload };
+  if (ownerPhone !== undefined) dbPayload.ownerphone = ownerPhone;
+
   if (id) {
     const { data, error } = await supabase
       .from('imoveis')
-      .update({ ...payload, updated_at: new Date().toISOString() })
+      .update({ ...dbPayload, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .maybeSingle();
@@ -785,7 +863,7 @@ async function persistImovel(id, payload, returnRow) {
   }
   const { data, error } = await supabase
     .from('imoveis')
-    .insert({ ...payload })
+    .insert({ ...dbPayload })
     .select()
     .maybeSingle();
   if (error) { console.error('Erro ao criar imóvel', error); return null; }
@@ -807,8 +885,7 @@ async function persistLead(id, payload) {
     return data || null;
   }
   
-  // Para novos leads, removemos o ID local caso exista
-  const { id: _, createdAt, ...cleanPayload } = payload;
+  const { createdAt, ...cleanPayload } = payload;
   const { data, error } = await supabase
     .from('leads')
     .insert({ ...cleanPayload })
