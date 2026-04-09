@@ -639,12 +639,13 @@
     <h3 class="modal-title">🏠 Novo Imóvel</h3>
     <div class="flex flex-col gap-3">
       <div class="form-group">
-        <label class="form-label">Tipo</label>
+        <label class="form-label">Etapa do pipe</label>
         <select class="form-input" id="new-imovel-tipo">
-          <option value="Terreno">🏞️ Terreno</option>
-          <option value="Casa">🏠 Casa</option>
-          <option value="Loteamento">🏘️ Loteamento</option>
-          <option value="Apartamento">🏢 Apartamento</option>
+          <option value="0">🏞️ Terreno</option>
+          <option value="1">🏠 Casa</option>
+          <option value="2">🏘️ Loteamento</option>
+          <option value="3">🏢 Apartamento</option>
+          <option value="4">✅ Vendido</option>
         </select>
       </div>
       <div class="form-group">
@@ -690,16 +691,7 @@
         <label class="form-label">Descrição</label>
         <textarea class="form-input" id="new-imovel-description" rows="2" placeholder="Descrição do imóvel..."></textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">Etapa do Pipeline</label>
-        <select class="form-input" id="new-imovel-col">
-          <option value="0">🏞️ Terreno</option>
-          <option value="1">🏠 Casa</option>
-          <option value="2">🏘️ Loteamento</option>
-          <option value="3">🏢 Apartamento</option>
-          <option value="4">✅ Vendido</option>
-        </select>
-      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-add-imovel')">Cancelar</button>

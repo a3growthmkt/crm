@@ -713,7 +713,7 @@ function openEditImovelModal(imovelId, event) {
   const imovel = state.imoveis.find(i => i.id === imovelId);
   if (!imovel) return;
   _editingImovelId = imovelId;
-  document.getElementById('new-imovel-tipo').value = imovel.tipo;
+  document.getElementById('new-imovel-tipo').value = imovel.col;
   document.getElementById('new-imovel-address').value = imovel.address;
   document.getElementById('new-imovel-price').value = imovel.price;
   document.getElementById('new-imovel-area').value = imovel.area;
@@ -723,7 +723,6 @@ function openEditImovelModal(imovelId, event) {
   document.getElementById('new-imovel-owner').value = imovel.owner;
   document.getElementById('new-imovel-owner-phone').value = imovel.ownerPhone;
   document.getElementById('new-imovel-description').value = imovel.description;
-  document.getElementById('new-imovel-col').value = imovel.col;
   _photoQueue = (imovel.photos || []).slice(0, 5).map(url => ({ kind: 'existing', url }));
   renderPhotoPreview(_photoQueue.map(p => p.url));
   
@@ -738,9 +737,9 @@ function openEditImovelModal(imovelId, event) {
 }
 
 function openAddImovelModalForCol(colIndex) {
-  const colSelect = document.getElementById('new-imovel-col');
-  if (colSelect) colSelect.value = String(colIndex);
   openAddImovelModal();
+  const tipoSelect = document.getElementById('new-imovel-tipo');
+  if (tipoSelect) tipoSelect.value = String(colIndex);
 }
 
 function openAddImovelModal() { 
@@ -759,17 +758,17 @@ function openAddImovelModal() {
 }
 
 async function addNewImovel() {
-  const tipo        = document.getElementById('new-imovel-tipo').value;
-  const address     = document.getElementById('new-imovel-address').value.trim();
-  const price       = document.getElementById('new-imovel-price').value.trim() || 'R$ 0';
-  const area        = document.getElementById('new-imovel-area').value.trim() || null;
-  const rooms       = document.getElementById('new-imovel-rooms').value.trim() || null;
-  const bathrooms   = document.getElementById('new-imovel-bathrooms').value.trim() || null;
-  const parking     = document.getElementById('new-imovel-parking').value.trim() || null;
-  const owner       = document.getElementById('new-imovel-owner').value.trim();
-  const ownerPhone  = document.getElementById('new-imovel-owner-phone').value.trim();
-  const description = document.getElementById('new-imovel-description').value.trim();
-  const col         = parseInt(document.getElementById('new-imovel-col').value, 10);
+  const col           = parseInt(document.getElementById('new-imovel-tipo').value, 10) || 0;
+  const tipo          = state.propertyColumns[col]?.name || 'Casa';
+  const address       = document.getElementById('new-imovel-address').value.trim();
+  const price         = document.getElementById('new-imovel-price').value.trim() || 'R$ 0';
+  const area          = document.getElementById('new-imovel-area').value.trim() || null;
+  const rooms         = document.getElementById('new-imovel-rooms').value.trim() || null;
+  const bathrooms     = document.getElementById('new-imovel-bathrooms').value.trim() || null;
+  const parking       = document.getElementById('new-imovel-parking').value.trim() || null;
+  const owner         = document.getElementById('new-imovel-owner').value.trim();
+  const ownerPhone    = document.getElementById('new-imovel-owner-phone').value.trim();
+  const description   = document.getElementById('new-imovel-description').value.trim();
   const tempIdForPhotos = _editingImovelId || ('tmp-' + Date.now());
   const photos      = await uploadPhotoQueue(_photoQueue, tempIdForPhotos);
   
