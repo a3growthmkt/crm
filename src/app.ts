@@ -665,6 +665,26 @@ function openImovelDetail(imovelId, event) {
     </div>`;
   }
 
+  const DETAIL_TAG_CONFIG = {
+    'negociando':        { label: '🤝 Negociando',        color: '#D4C5F9', text: '#6d42c9' },
+    'entrar-em-contato': { label: '📞 Entrar em contato', color: '#A2D5F2', text: '#1d6d9a' },
+    'reservado':         { label: '🔒 Reservado',         color: '#FFD3B6', text: '#c47a2d' },
+    'urgente':           { label: '🔥 Urgente',           color: '#FFB3B3', text: '#c0392b' },
+    'novo':              { label: '✨ Novo',               color: '#A8E6CF', text: '#2d7a5a' },
+  };
+  if (imovel.tag && DETAIL_TAG_CONFIG[imovel.tag]) {
+    const tc = DETAIL_TAG_CONFIG[imovel.tag];
+    bodyHTML += `<div class="detail-row">
+      <div class="detail-row-icon"><span class="material-symbols-rounded">label</span></div>
+      <div class="detail-row-content">
+        <div class="detail-row-label">Etiqueta</div>
+        <div class="detail-row-value">
+          <span class="imovel-tag-badge" style="background:${tc.color};color:${tc.text}">${tc.label}</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
   bodyHTML += `<div class="detail-row">
       <div class="detail-row-icon"><span class="material-symbols-rounded">view_kanban</span></div>
       <div class="detail-row-content">
