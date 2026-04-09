@@ -1711,10 +1711,38 @@ input, textarea, select { font-family: var(--font-body); }
   .settings-nav-item { white-space: nowrap; padding: 8px 16px; border: 1px solid var(--border); }
   
   /* PROFILE MOBILE OPTIMIZATION */
-  .profile-hero { padding: 24px 16px !important; text-align: center; }
-  .profile-info { width: 100%; }
-  .stats-row { justify-content: center; width: 100%; }
-  .stat-chip { flex: 1; min-width: 80px; }
+  .profile-hero {
+    padding: 20px 16px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 16px !important;
+  }
+  .profile-info { width: 100%; text-align: center; }
+  .profile-info h2 { font-size: 1.2rem; }
+  .stats-row {
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+  }
+  .stat-chip { flex: 1; min-width: 0; padding: 8px 8px; }
+  .stat-chip strong { font-size: 1.1rem; }
+  .stat-chip span { font-size: 0.65rem; }
+
+  /* ACHIEVEMENTS: 2 columns on mobile */
+  .achievements-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .achievement-card { padding: 12px 8px !important; }
+  .achievement-icon { font-size: 1.6rem !important; }
+
+  /* PERSONAL INFO: stack Name/Surname */
+  #page-profile [style*="grid-template-columns:1fr 1fr"],
+  #page-profile [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Save button full width */
+  #page-profile .btn-primary { width: 100% !important; justify-content: center !important; }
 
   /* KANBAN: TABBED NAVIGATION STYLE */
   .kanban-mobile-tabs {
