@@ -1608,6 +1608,29 @@ input, textarea, select { font-family: var(--font-body); }
 
 /* ─── CONSOLIDATED MOBILE RESPONSIVENESS (VERTICAL) ────────── */
 @media (max-width: 768px) {
+  /* LOGIN: hide decorative left panel, make form full screen */
+  .login-left { display: none !important; }
+  .login-right {
+    width: 100% !important;
+    padding: 48px 24px !important;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, #fff0ee 0%, #f8f9fa 60%) !important;
+  }
+  .login-form-box { max-width: 100% !important; }
+
+  /* DASHBOARD: single-column layout on mobile */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .metric-grid {
+    /* keep 2 cols but equal width */
+    grid-template-columns: 1fr 1fr !important;
+  }
+
   /* COMPLETE SILENCING OF SIDEBAR ON MOBILE */
   #app-shell #main-sidebar {
     display: none !important;
