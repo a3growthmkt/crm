@@ -451,6 +451,19 @@ function renderImovelCard(imovel) {
   const tipoIcon = { 'Terreno': '🏞️', 'Casa': '🏠', 'Loteamento': '🏘️', 'Apartamento': '🏢' }[imovel.tipo] || '🏠';
   const ownerLine = imovel.owner ? `<div class="imovel-card-owner">👤 ${imovel.owner}${imovel.ownerPhone ? `<br>${imovel.ownerPhone}` : ''}</div>` : '';
   const photo = (imovel.photos && imovel.photos[0]) || null;
+
+  const TAG_CONFIG = {
+    'negociando':        { label: '🤝 Negociando',        color: '#D4C5F9', text: '#6d42c9' },
+    'entrar-em-contato': { label: '📞 Entrar em contato', color: '#A2D5F2', text: '#1d6d9a' },
+    'reservado':         { label: '🔒 Reservado',         color: '#FFD3B6', text: '#c47a2d' },
+    'urgente':           { label: '🔥 Urgente',           color: '#FFB3B3', text: '#c0392b' },
+    'novo':              { label: '✨ Novo',              color: '#A8E6CF', text: '#2d7a5a' },
+  };
+  const tagCfg = imovel.tag ? TAG_CONFIG[imovel.tag] : null;
+  const tagBadge = tagCfg
+    ? `<span class="imovel-tag-badge" style="background:${tagCfg.color};color:${tagCfg.text}">${tagCfg.label}</span>`
+    : '';
+
   return `
     <div class="kanban-card" id="card-${imovel.id}" draggable="true"
       data-imovel-id="${imovel.id}" onclick="openImovelDetail('${imovel.id}', event)">
@@ -463,6 +476,7 @@ function renderImovelCard(imovel) {
         </button>
       </div>
       ${photo ? `<div class="imovel-card-cover"><img src="${photo}" alt="Foto do imóvel" /></div>` : ''}
+      ${tagBadge}
       ${ownerLine}
       <div class="imovel-card-tipo">${tipoIcon} ${imovel.tipo}</div>
       <div class="imovel-card-address">${imovel.address}</div>
@@ -723,6 +737,7 @@ function openEditImovelModal(imovelId, event) {
   document.getElementById('new-imovel-owner').value = imovel.owner;
   document.getElementById('new-imovel-owner-phone').value = imovel.ownerPhone;
   document.getElementById('new-imovel-description').value = imovel.description;
+  document.getElementById('new-imovel-tag').value = imovel.tag || '';
   _photoQueue = (imovel.photos || []).slice(0, 5).map(url => ({ kind: 'existing', url }));
   renderPhotoPreview(_photoQueue.map(p => p.url));
   
@@ -750,7 +765,7 @@ function openAddImovelModal() {
     if (title) title.textContent = 'Novo Imóvel';
     const btn = modal.querySelector('button.btn-primary');
     if (btn) btn.textContent = 'Adicionar Imóvel';
-    clearModalFields(['new-imovel-tipo','new-imovel-address','new-imovel-price','new-imovel-area','new-imovel-rooms','new-imovel-bathrooms','new-imovel-parking','new-imovel-owner','new-imovel-owner-phone','new-imovel-description']);
+    clearModalFields(['new-imovel-tipo','new-imovel-address','new-imovel-price','new-imovel-area','new-imovel-rooms','new-imovel-bathrooms','new-imovel-parking','new-imovel-owner','new-imovel-owner-phone','new-imovel-description','new-imovel-tag']);
     _photoQueue = [];
     renderPhotoPreview([]);
     modal.classList.add('open'); 
@@ -769,6 +784,7 @@ async function addNewImovel() {
   const owner         = document.getElementById('new-imovel-owner').value.trim();
   const ownerPhone    = document.getElementById('new-imovel-owner-phone').value.trim();
   const description   = document.getElementById('new-imovel-description').value.trim();
+  const tag           = document.getElementById('new-imovel-tag').value || null;
   const tempIdForPhotos = _editingImovelId || ('tmp-' + Date.now());
   const photos      = await uploadPhotoQueue(_photoQueue, tempIdForPhotos);
   
@@ -777,7 +793,7 @@ async function addNewImovel() {
   if (_editingImovelId) {
     const imovel = state.imoveis.find(i => i.id === _editingImovelId);
     if (imovel) {
-      Object.assign(imovel, { tipo, address, price, area, rooms, bathrooms, parking, owner, ownerPhone, description, col, photos });
+      Object.assign(imovel, { tipo, address, price, area, rooms, bathrooms, parking, owner, ownerPhone, description, col, photos, tag });
       state.activities.unshift({ text: `Imóvel ${address} atualizado`, time: 'Agora mesmo', icon: '📝' });
       await persistImovel(imovel.id, imovel, true);
     }
@@ -785,7 +801,7 @@ async function addNewImovel() {
     const colors = ['#fb6551','#a2d5f2','#a8e6cf','#d4c5f9','#ffd3b6'];
     const tempId = 'i' + Date.now();
     const newImovel = {
-      id: tempId, tipo, address, price, area, rooms, bathrooms, parking, owner, ownerPhone, description, col,
+      id: tempId, tipo, address, price, area, rooms, bathrooms, parking, owner, ownerPhone, description, col, tag,
       color: colors[state.imoveis.length % colors.length],
       photos,
     };

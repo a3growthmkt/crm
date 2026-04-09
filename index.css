@@ -784,6 +784,18 @@ input, textarea, select { font-family: var(--font-body); }
   color: var(--text-muted);
 }
 
+.imovel-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-btn);
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: 0.01em;
+}
+
 #page-kanban[style*="block"] {
   display: flex !important;
   flex-direction: column;
